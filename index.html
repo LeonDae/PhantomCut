@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WATT-WATCH HUD</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+
+    <!-- Tailwind CSS (CDN for prototyping) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00E5FF", // Neon Cyan
+                        "secondary": "#8B5CF6", // Purple
+                        "background": "#020813", // Deepest Blue
+                        "surface": "#061A3A",
+                        "surface-variant": "#0B2653",
+                        "outline": "#1A3A69",
+                        "on-surface": "#E2E8F0",
+                        "error": "#F43F5E"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #020813 0%, #0A192F 100%);
+            color: #E2E8F0;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            cursor: none;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-panel {
+            background: rgba(6, 26, 58, 0.4);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 229, 255, 0.2);
+            position: absolute;
+            animation: scan 6s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        .status-pulse {
+            animation: pulse-blue 2s infinite;
+        }
+
+        @keyframes pulse-blue {
+            0% {
+                opacity: 0.4;
+                transform: scale(0.9);
+                box-shadow: 0 0 0px #00E5FF;
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.1);
+                box-shadow: 0 0 10px #00E5FF;
+            }
+
+            100% {
+                opacity: 0.4;
+                transform: scale(0.9);
+                box-shadow: 0 0 0px #00E5FF;
+            }
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        #root {
+            min-height: 100vh;
+        }
+
+        .text-glow {
+            text-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+        }
+
+        /* Animated title glow */
+        @keyframes titleGlow {
+
+            0%,
+            100% {
+                text-shadow: 0 0 20px rgba(0, 229, 255, 0.4), 0 0 40px rgba(0, 229, 255, 0.2), 0 0 80px rgba(0, 229, 255, 0.1);
+            }
+
+            50% {
+                text-shadow: 0 0 30px rgba(0, 229, 255, 0.8), 0 0 60px rgba(0, 229, 255, 0.4), 0 0 120px rgba(0, 229, 255, 0.2);
+            }
+        }
+
+        .title-glow {
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+
+        /* Floating particle */
+        @keyframes floatUp {
+            0% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: translateY(-10vh) scale(1);
+                opacity: 0;
+            }
+        }
+
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #00E5FF;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 6px #00E5FF;
+        }
+
+        /* Data table styles */
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .data-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: rgba(0, 229, 255, 0.6);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background: rgba(6, 26, 58, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 5;
+        }
+
+        .data-table td {
+            padding: 10px 16px;
+            font-size: 12px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.05);
+            font-family: 'Inter', sans-serif;
+            color: #CBD5E1;
+            transition: background 0.2s;
+        }
+
+        .data-table tr:hover td {
+            background: rgba(0, 229, 255, 0.03);
+        }
+
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Custom Pointer Styles */
+        .cursor-dot {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 8px;
+            height: 8px;
+            background: #00E5FF;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: screen;
+            box-shadow: 0 0 10px #00E5FF, 0 0 20px #00E5FF;
+        }
+
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(0, 229, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+        }
+
+        button:hover~.cursor-outline,
+        a:hover~.cursor-outline,
+        .hover-target:hover~.cursor-outline {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(0, 229, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-background">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useScroll, useTransform, motion, useSpring, AnimatePresence } = window.Motion || window.FramerMotion || FramerMotion;
+        const { useRef, useEffect, useState } = React;
+
+        // Custom Cursor Hook
+        function useMousePosition() {
+            const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+            useEffect(() => {
+                const updateMousePosition = ev => {
+                    setMousePosition({ x: ev.clientX, y: ev.clientY });
+                };
+                window.addEventListener('mousemove', updateMousePosition);
+                return () => window.removeEventListener('mousemove', updateMousePosition);
+            }, []);
+            return mousePosition;
+        }
+
+        function App() {
+            const containerRef = useRef(null);
+            const { x, y } = useMousePosition();
+
+            // Chart.js references
+            const lineChartRef = useRef(null);
+            const barChartRef = useRef(null);
+            const doughnutChartRef = useRef(null);
+            const chartInstances = useRef({ line: null, bar: null, doughnut: null });
+
+            // Backend API State
+            const [roomData, setRoomData] = useState([]);
+            const [totalSaved, setTotalSaved] = useState(0);
+            const [activeTab, setActiveTab] = useState('Overview');
+            const [historyData, setHistoryData] = useState([]);
+            const [showPreview, setShowPreview] = useState(false);
+            const [espStatus, setEspStatus] = useState({ enabled: false, connected: false, last_sent_state: {} });
+            const [manualOverride, setManualOverride] = useState(false);
+            const [pinConfig, setPinConfig] = useState(null);
+            const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
+            const [isRecording, setIsRecording] = useState(false);
+            const [analyticsRoomFilter, setAnalyticsRoomFilter] = useState('All');
+
+            useEffect(() => {
+                const fetchStatus = async () => {
+                    try {
+                        const res = await fetch("http://127.0.0.1:8000/api/status");
+                        const data = await res.json();
+                        if (data.rooms) {
+                            setRoomData(data.rooms);
+                            setTotalSaved(data.rooms.reduce((acc, r) => acc + r.energy_saved_kwh, 0));
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                };
+                fetchStatus();
+                const interval = setInterval(fetchStatus, 500);
+                return () => clearInterval(interval);
+            }, []);
+
+            // Fetch ESP8266 status
+            useEffect(() => {
+                const fetchEsp = async () => {
+                    try {
+                        const res = await fetch("http://127.0.0.1:8000/api/esp8266/status");
+                        const data = await res.json();
+                        setEspStatus(data);
+                    } catch (e) { /* ignore */ }
+                };
+                fetchEsp();
+                const interval = setInterval(fetchEsp, 2000);
+                return () => clearInterval(interval);
+            }, []);
+
+            // Fetch pin config (from QR scan)
+            useEffect(() => {
+                const fetchPinCfg = async () => {
+                    try {
+                        const res = await fetch("http://127.0.0.1:8000/api/pinconfig");
+                        const data = await res.json();
+                        if (data.zone_labels) setPinConfig(data);
+                    } catch (e) { /* ignore */ }
+                };
+                fetchPinCfg();
+            }, []);
+
+            // Fetch history when Analytics tab is active
+            useEffect(() => {
+                if (activeTab !== 'Analytics') return;
+                const fetchHistory = async () => {
+                    try {
+                        const res = await fetch("http://127.0.0.1:8000/api/history");
+                        const data = await res.json();
+                        if (data.history) setHistoryData(data.history);
+                    } catch (e) { /* ignore */ }
+                };
+                fetchHistory();
+                const interval = setInterval(fetchHistory, 5000);
+                return () => clearInterval(interval);
+            }, [activeTab]);
+
+            useEffect(() => {
+                const fetchRecordingStatus = async () => {
+                    try {
+                        const res = await fetch(`http://127.0.0.1:8000/api/recording_status/${selectedRoomIndex}`);
+                        const data = await res.json();
+                        setIsRecording(data.is_recording);
+                    } catch (e) { /* ignore */ }
+                };
+                fetchRecordingStatus();
+                const interval = setInterval(fetchRecordingStatus, 1000);
+                return () => clearInterval(interval);
+            }, [selectedRoomIndex]);
+
+            const startRecording = async () => {
+                if (isRecording) return;
+                try {
+                    await fetch(`http://127.0.0.1:8000/api/record_video/${selectedRoomIndex}`, { method: 'POST' });
+                    setIsRecording(true);
+                } catch (e) { }
+            };
+
+            const downloadCSV = () => {
+                window.open('http://127.0.0.1:8000/api/history/csv', '_blank');
+            };
+
+            const toggleZone = async (zone, currentState) => {
+                try {
+                    const newState = currentState ? 0 : 1;
+                    await fetch("http://127.0.0.1:8000/api/esp8266/zone", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ [zone]: newState })
+                    });
+                } catch (e) { console.error('Zone toggle failed:', e); }
+            };
+
+            const toggleAllZones = async (state) => {
+                try {
+                    await fetch("http://127.0.0.1:8000/api/esp8266/zone", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ zone1: state, zone2: state, zone3: state, zone4: state })
+                    });
+                } catch (e) { console.error('All zones toggle failed:', e); }
+            };
+
+            // Active room = whichever room is selected in the Camera/Overview dropdown
+            const activeRoom = roomData.length > selectedRoomIndex ? roomData[selectedRoomIndex] : { person_count: 0, appliance_state: "OFF", alert: false, appliance_count: 0, appliance_breakdown: {}, energy_saved_kwh: 0 };
+            const liveRoom = roomData.length > 0 ? roomData[0] : { person_count: 0, appliance_state: "OFF", alert: false };
+
+            const roomLabels = [
+                { short: 'Main Camera', full: 'Room-CAD LAB (Live)', icon: 'videocam' },
+                { short: 'Local Footage 1', full: 'Room 102 (Class)', icon: 'movie' },
+                { short: 'Local Footage 2', full: 'Room 103 (Lab)', icon: 'movie' }
+            ];
+
+            // Filtered history for analytics room dropdown
+            const filteredHistory = analyticsRoomFilter === 'All'
+                ? historyData
+                : historyData.filter(r => r.room && r.room.includes(analyticsRoomFilter));
+
+            // Scroll Animation Hooks for Earth -> Drone City Transition
+            // Total height 400vh gives enough scrolling room for the intro.
+            const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
+            const smoothProgress = useSpring(scrollYProgress, { stiffness: 60, damping: 20 });
+
+            // Earth Animation (Phase 1: 0 to 0.4)
+            const earthScale = useTransform(smoothProgress, [0, 0.2, 0.4], [1, 8, 20]);
+            const earthX = useTransform(smoothProgress, [0, 0.2, 0.4], ["0%", "-10%", "-20%"]);
+            const earthOpacity = useTransform(smoothProgress, [0.2, 0.4], [1, 0]);
+
+            // HUD Intro Opacity (Phase 2: 0.3 to 0.5)
+            const hudOpacity = useTransform(smoothProgress, [0.3, 0.5], [0, 1]);
+            const hudY = useTransform(smoothProgress, [0.3, 0.5], [50, 0]);
+
+            const tabs = [
+                { id: 'Overview', label: 'Tactical Overview', icon: 'dashboard' },
+                { id: 'Camera', label: 'Video Feed', icon: 'videocam' },
+                { id: 'IoT', label: 'IoT Zone Control', icon: 'sensors' },
+                { id: 'Analytics', label: 'Power Grid Analytics', icon: 'monitoring' }
+            ];
+
+            const zoneLabels = pinConfig ? pinConfig.zone_labels : {
+                zone1: { label: 'Zone 1', pos: 'Row1-Col1', pin: 'D2' },
+                zone2: { label: 'Zone 2', pos: 'Row1-Col2', pin: 'D1' },
+                zone3: { label: 'Zone 3', pos: 'Row2-Col1', pin: 'D6' },
+                zone4: { label: 'Zone 4', pos: 'Row2-Col2', pin: 'D5' },
+            };
+
+            const zoneOccupancy = liveRoom.zone_occupancy || { zone1: 0, zone2: 0, zone3: 0, zone4: 0 };
+            const zoneLights = espStatus.last_sent_state || { zone1: 1, zone2: 1, zone3: 1, zone4: 1 };
+
+            return (
+                <div ref={containerRef} className="relative h-[400vh] bg-background">
+
+                    {/* Custom Mouse Pointer Elements */}
+                    <motion.div
+                        className="cursor-dot"
+                        animate={{ x, y }}
+                        transition={{ duration: 0, ease: "linear" }}
+                    />
+                    <motion.div
+                        className="cursor-outline"
+                        animate={{ x, y }}
+                        transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.5 }}
+                    />
+
+                    {/* Fixed Viewport Content */}
+                    <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col items-center">
+
+                        {/* Background Drone Video Loop - Visible throughout. Filter opacity bound to scroll if needed, but we keep it static */}
+                        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                            <video
+                                autoPlay loop muted playsInline
+                                className="w-full h-full object-cover filter brightness-50 contrast-125 sepia-0 mix-blend-screen opacity-40"
+                            >
+                                <source src="./assets/drone_city.mp4" type="video/mp4" />
+                            </video>
+                            <div className="absolute inset-0 bg-background/50"></div>
+                            <div className="scanline z-20 opacity-30"></div>
+                        </div>
+
+                        {/* Floating Particles */}
+                        <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+                            {Array.from({ length: 20 }).map((_, i) => (
+                                <div key={i} className="particle" style={{
+                                    left: `${Math.random() * 100}%`,
+                                    animationName: 'floatUp',
+                                    animationDuration: `${6 + Math.random() * 8}s`,
+                                    animationDelay: `${Math.random() * 10}s`,
+                                    animationIterationCount: 'infinite',
+                                    animationTimingFunction: 'linear',
+                                    opacity: Math.random() * 0.5 + 0.2,
+                                    width: `${2 + Math.random() * 3}px`,
+                                    height: `${2 + Math.random() * 3}px`,
+                                }} />
+                            ))}
+                        </div>
+
+                        {/* Earth Phase 1 + Title */}
+                        <motion.div style={{ scale: earthScale, x: earthX, opacity: earthOpacity }} className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 origin-center">
+                            {/* WATT-WATCH Title Above Earth */}
+                            <div className="mb-8 text-center z-20 relative">
+                                <h1 className="text-6xl md:text-8xl font-headline font-black text-primary tracking-[0.3em] uppercase title-glow select-none" style={{ letterSpacing: '0.3em' }}>WATT-WATCH</h1>
+                                <p className="text-lg md:text-xl font-label text-primary/50 tracking-[0.5em] uppercase mt-4">Intelligent Energy Auditor</p>
+                                <div className="mx-auto mt-6 w-48 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+                            </div>
+                            <motion.img
+                                animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 160, ease: "linear" }}
+                                src="./assets/earth.png" alt="Rotating Earth" className="w-[65vh] h-[65vh] max-w-none object-contain rounded-full shadow-[0_0_120px_rgba(0,229,255,0.25)]"
+                            />
+                        </motion.div>
+
+                        {/* Interactive HUD Phase 2+ */}
+                        <motion.div style={{ opacity: hudOpacity, y: hudY }} className="relative z-30 w-full h-full flex flex-col pointer-events-auto overflow-y-auto overflow-x-hidden scrollbar-hide">
+
+                            {/* Top Header */}
+                            <header className="glass-panel sticky top-0 z-50 px-8 py-4 flex items-center justify-between border-b border-primary/20">
+                                <div className="flex items-center gap-4">
+                                    <img src="./assets/phantom_cut_logo.png" className="w-12 h-12 object-contain rounded-full shadow-[0_0_15px_rgba(0,229,255,0.3)]" alt="Phantom Cut Logo" />
+                                    <div>
+                                        <h1 className="text-xl md:text-2xl font-headline font-black text-[#a697ff] tracking-widest uppercase text-glow hover:scale-105 transition-transform origin-left">PHANTOM CUT</h1>
+                                        <p className="font-label text-primary/60 text-[10px] uppercase tracking-[0.2em]">Intelligent Energy Auditing</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                    <div className="hidden md:flex items-center gap-3 px-4 py-2 glass-panel border border-primary/10 rounded">
+                                        <span className={`w-2.5 h-2.5 rounded-full ${espStatus.connected ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse'}`}></span>
+                                        <span className="font-label text-[10px] uppercase tracking-widest">
+                                            <span className={espStatus.connected ? 'text-green-400' : 'text-red-400'}>ESP8266</span>
+                                            <span className="text-primary/40 ml-2">{espStatus.connected ? 'LINKED' : 'OFFLINE'}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </header>
+
+                            {/* Navigation Tabs */}
+                            <nav className="px-8 pt-8 flex justify-center w-full z-40">
+                                <div className="glass-panel flex flex-wrap p-2 gap-2 rounded-sm max-w-3xl justify-center shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+                                    {tabs.map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`hover-target relative px-6 py-3 flex items-center gap-3 transition-all duration-300 font-label text-xs uppercase tracking-widest font-bold hover:scale-105 ${activeTab === tab.id ? 'text-primary' : 'text-primary/40 hover:text-primary/70'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-lg">{tab.icon}</span>
+                                            {tab.label}
+                                            {activeTab === tab.id && (
+                                                <motion.div layoutId="activeNavIndicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_#00E5FF]" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </nav>
+
+                            {/* Main Content Area */}
+                            <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-12 relative z-30 flex flex-col pb-32">
+                                <AnimatePresence mode="wait">
+
+                                    {/* OVERVIEW TAB */}
+                                    {activeTab === 'Overview' && (
+                                        <motion.div
+                                            key="Overview"
+                                            initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: -30, scale: 0.98 }}
+                                            transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
+                                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full flex-1"
+                                        >
+                                            {/* KPI Cards */}
+                                            {/* Room Selector for Overview */}
+                                            <div className="lg:col-span-4 mb-4">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="font-label text-[10px] text-primary/50 uppercase tracking-widest">Viewing Room:</span>
+                                                    <div className="glass-panel flex rounded px-1 py-1 gap-1 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                                                        {roomLabels.map((rm, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => setSelectedRoomIndex(idx)}
+                                                                className={`px-4 py-1.5 font-label text-[10px] uppercase font-bold tracking-widest rounded transition-all flex items-center gap-2 ${selectedRoomIndex === idx ? 'bg-primary text-background shadow-[0_0_10px_#00E5FF]' : 'text-primary/50 hover:text-primary'}`}
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">{rm.icon}</span>
+                                                                {rm.short}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className={`hover-target glass-panel p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col border-t-4 transition-transform hover:-translate-y-2 duration-300 ${activeRoom.person_count > 0 ? "border-primary" : "border-error"}`}>
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <p className="text-xs font-label text-primary/50 tracking-widest uppercase">Target Occupancy</p>
+                                                    <span className={`material-symbols-outlined text-3xl ${activeRoom.person_count > 0 ? "text-primary text-glow" : "text-error drop-shadow-[0_0_10px_#F43F5E]"}`}>group</span>
+                                                </div>
+                                                <p className="text-6xl font-headline text-on-surface font-black mt-auto">
+                                                    {activeRoom.person_count} <span className={`text-xl ${activeRoom.person_count > 0 ? "text-primary" : "text-error"}`}>{activeRoom.person_count > 0 ? "PRESENT" : "EMPTY"}</span>
+                                                </p>
+                                            </div>
+
+                                            <div className={`hover-target glass-panel p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col border-t-4 transition-transform hover:-translate-y-2 duration-300 ${activeRoom.appliance_state === "ON" ? "border-error" : "border-primary"}`}>
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <p className="text-xs font-label text-primary/50 tracking-widest uppercase">Device State</p>
+                                                    <span className={`material-symbols-outlined text-3xl ${activeRoom.appliance_state === "ON" ? "text-error status-pulse drop-shadow-[0_0_10px_#F43F5E]" : "text-primary text-glow"}`}>bolt</span>
+                                                </div>
+                                                <p className={`text-6xl font-headline font-black mt-auto uppercase ${activeRoom.appliance_state === "ON" ? "text-error drop-shadow-[0_0_10px_#F43F5E]" : "text-primary text-glow"}`}>
+                                                    {activeRoom.appliance_state}
+                                                </p>
+                                            </div>
+
+                                            <div className="hover-target glass-panel p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col border-t-4 border-secondary/50 transition-transform hover:-translate-y-2 duration-300">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <p className="text-xs font-label text-secondary/70 tracking-widest uppercase">Net Saved Power</p>
+                                                    <span className="material-symbols-outlined text-3xl text-secondary drop-shadow-[0_0_10px_#8B5CF6]">eco</span>
+                                                </div>
+                                                <p className="text-6xl font-headline text-secondary font-black drop-shadow-[0_0_10px_#8B5CF6] mt-auto">
+                                                    {(activeRoom.energy_saved_kwh || 0).toFixed(3)} <span className="text-xl opacity-70">kWh</span>
+                                                </p>
+                                            </div>
+
+                                            <div className={`hover-target glass-panel p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col border-t-4 transition-transform hover:-translate-y-2 duration-300 ${activeRoom.appliance_count > 0 ? "border-[#F59E0B]" : "border-primary"}`}>
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <p className="text-xs font-label text-[#F59E0B]/70 tracking-widest uppercase">Appliances Detected</p>
+                                                    <span className={`material-symbols-outlined text-3xl ${activeRoom.appliance_count > 0 ? "text-[#F59E0B] drop-shadow-[0_0_10px_#F59E0B]" : "text-primary text-glow"}`}>devices</span>
+                                                </div>
+                                                <p className={`text-5xl font-headline font-black ${activeRoom.appliance_count > 0 ? "text-[#F59E0B] drop-shadow-[0_0_10px_#F59E0B]" : "text-primary text-glow"}`}>
+                                                    {activeRoom.appliance_count || 0} <span className={`text-lg ${activeRoom.appliance_count > 0 ? "text-[#F59E0B]/60" : "text-primary/60"}`}>{activeRoom.appliance_state}</span>
+                                                </p>
+                                                {/* Classified appliance breakdown */}
+                                                {activeRoom.appliance_breakdown && Object.keys(activeRoom.appliance_breakdown).length > 0 ? (
+                                                    <div className="mt-4 space-y-1.5 border-t border-primary/10 pt-3">
+                                                        {Object.entries(activeRoom.appliance_breakdown).map(([name, count]) => (
+                                                            <div key={name} className="flex justify-between items-center">
+                                                                <span className="text-[10px] font-label text-primary/60 uppercase tracking-wider">{name}</span>
+                                                                <span className="text-sm font-headline text-[#F59E0B] font-bold">{count}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[9px] font-label text-primary/30 mt-4 tracking-wider">LIGHTS · FANS · LAPTOPS · TV · PROJECTORS</p>
+                                                )}
+                                            </div>
+
+                                            {/* Visual Analysis Section */}
+                                            <div className="lg:col-span-4 mt-10">
+                                                <div className="flex items-center gap-4 mb-6">
+                                                    <div className="w-1 h-8 bg-primary shadow-[0_0_10px_#00E5FF]"></div>
+                                                    <h2 className="text-2xl font-headline font-black text-primary tracking-[0.2em] uppercase text-glow">VISUAL ANALYSIS</h2>
+                                                    <div className="flex-1 h-px bg-gradient-to-r from-primary/30 to-transparent"></div>
+                                                    <span className="material-symbols-outlined text-primary/40 text-xl">analytics</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {/* Line Graph - Left */}
+                                                    <div className="hover-target glass-panel p-4 shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-primary/15 transition-all duration-300 hover:border-primary/40 hover:-translate-y-1 overflow-hidden">
+                                                        <div className="flex items-center gap-2 mb-3 px-2">
+                                                            <span className="material-symbols-outlined text-primary text-sm">show_chart</span>
+                                                            <span className="font-label text-[10px] text-primary/60 uppercase tracking-[0.15em] font-bold">Cost Over Time</span>
+                                                        </div>
+                                                        <div className="w-full aspect-[4/3] overflow-hidden rounded">
+                                                            <img
+                                                                src="./assets/LineGraph.jpeg"
+                                                                alt="Cost Over Time - Room CAD Lab"
+                                                                className="w-full h-full object-contain"
+                                                                style={{ imageRendering: 'auto' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {/* Donut Graph - Right */}
+                                                    <div className="hover-target glass-panel p-4 shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-primary/15 transition-all duration-300 hover:border-primary/40 hover:-translate-y-1 overflow-hidden">
+                                                        <div className="flex items-center gap-2 mb-3 px-2">
+                                                            <span className="material-symbols-outlined text-primary text-sm">donut_large</span>
+                                                            <span className="font-label text-[10px] text-primary/60 uppercase tracking-[0.15em] font-bold">Energy Distribution</span>
+                                                        </div>
+                                                        <div className="w-full aspect-[4/3] overflow-hidden rounded">
+                                                            <img
+                                                                src="./assets/DonutGraph.jpeg"
+                                                                alt="Energy Distribution - Session Log"
+                                                                className="w-full h-full object-contain"
+                                                                style={{ imageRendering: 'auto' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Alert Panel spanning all columns */}
+                                            <div className="lg:col-span-4 mt-8">
+                                                {activeRoom.alert ? (
+                                                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="hover-target relative glass-panel bg-error/10 border border-error/50 p-8 flex items-center gap-8 overflow-hidden shadow-[0_0_50px_rgba(244,63,94,0.3)] transition-all hover:scale-[1.02]">
+                                                        <div className="absolute inset-0 bg-error/5 animate-pulse pointer-events-none"></div>
+                                                        <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="material-symbols-outlined text-6xl text-error drop-shadow-[0_0_20px_#F43F5E] z-10">warning</motion.span>
+                                                        <div className="z-10 flex-1">
+                                                            <h2 className="text-3xl font-headline font-black text-error mb-2 tracking-widest uppercase text-glow">ENERGY DRAIN SIGNAL DETECTED</h2>
+                                                            <p className="font-label text-error/80 uppercase tracking-widest">YOLOv8 Analysis reports target space is empty while power load is High.<br />Initiating cut-off protocols to ESP32 Smart Nodes...</p>
+                                                        </div>
+                                                        <button className="hover-target z-10 px-8 py-4 bg-error text-surface font-headline font-black uppercase tracking-widest hover:bg-white hover:text-error transition-colors pointer-events-auto shadow-[0_0_20px_rgba(244,63,94,0.5)]">OVERRIDE</button>
+                                                    </motion.div>
+                                                ) : (
+                                                    <div className="hover-target relative glass-panel bg-primary/5 border border-primary/20 p-8 flex items-center gap-8 overflow-hidden transition-all hover:border-primary/50">
+                                                        <div className="absolute top-0 left-0 w-full h-1 bg-primary animate-[scan_6s_linear_infinite] opacity-30"></div>
+                                                        <span className="material-symbols-outlined text-6xl text-primary drop-shadow-[0_0_15px_#00E5FF] z-10">verified_user</span>
+                                                        <div className="z-10">
+                                                            <h2 className="text-2xl font-headline font-black text-primary mb-2 tracking-widest uppercase text-glow">GRID SECURE</h2>
+                                                            <p className="font-label text-primary/60 uppercase tracking-widest text-xs">No active anomalies detected. Continuous YOLO-World inference running. Power bounds normal.</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* CAMERA TAB */}
+                                    {activeTab === 'Camera' && (
+                                        <motion.div
+                                            key="Camera"
+                                            initial={{ opacity: 0, x: -50 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 50 }}
+                                            transition={{ duration: 0.5, type: "spring" }}
+                                            className="w-full h-full flex flex-col gap-6"
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-4">
+                                                    <h2 className="text-3xl font-headline font-bold text-primary tracking-widest uppercase border-l-4 border-primary pl-4 text-glow">LIVE VIDEO FEED</h2>
+                                                    <div className="glass-panel flex rounded px-2 py-1 gap-1 ml-4 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                                                        {roomLabels.map((rm, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => setSelectedRoomIndex(idx)}
+                                                                className={`px-4 py-1.5 font-label text-[10px] uppercase font-bold tracking-widest rounded transition-all flex items-center gap-2 ${selectedRoomIndex === idx ? 'bg-primary text-background shadow-[0_0_10px_#00E5FF]' : 'text-primary/50 hover:text-primary'}`}
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">{rm.icon}</span>
+                                                                {rm.short}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={startRecording}
+                                                    className={`hover-target flex items-center gap-2 px-4 py-2 font-label text-xs uppercase tracking-widest font-bold border transition-colors ${isRecording ? 'border-error text-error bg-error/10 animate-pulse' : 'border-error/50 text-error hover:bg-error/20'}`}
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">{isRecording ? 'stop_circle' : 'radio_button_checked'}</span>
+                                                    {isRecording ? 'Recording (Auto-Stop on Empty)' : 'Record Video'}
+                                                </button>
+                                            </div>
+                                            <div className="hover-target glass-panel relative w-full aspect-video overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-primary/30 transition-transform duration-500 hover:scale-[1.01] hover:border-primary">
+                                                <div className="absolute top-6 left-6 z-10 flex items-center gap-3 bg-background/80 backdrop-blur-md px-4 py-2 border border-primary/20 rounded shadow-[0_0_20px_rgba(0,0,0,0.8)]">
+                                                    <span className={`w-3 h-3 rounded-full ${activeRoom.person_count > 0 ? "bg-primary status-pulse" : "bg-error animate-pulse"}`}></span>
+                                                    <span className={`font-label text-xs tracking-[0.2em] uppercase font-bold ${activeRoom.person_count > 0 ? "text-primary" : "text-error"}`}>OCCUPANTS: {activeRoom.person_count}</span>
+                                                </div>
+                                                <div className="scanline z-20 opacity-30"></div>
+                                                <img
+                                                    key={selectedRoomIndex}
+                                                    src={`http://127.0.0.1:8000/api/video_feed/${selectedRoomIndex}`}
+                                                    alt="Live CCTV Stream"
+                                                    className="w-full h-full object-cover mix-blend-screen opacity-90 filter contrast-125 hover:scale-105 transition-transform duration-1000"
+                                                    onError={(e) => {
+                                                        e.target.src = "https://lh3.googleusercontent.com/aida-public/AB6AXuCQwr-9MHIuyoNkXu0LrlDo32rMtW7DKnbp6krV7HCh48ry77qjN04c620fTntds5rJGi3tvEaGRHe0lQIJbOp_A5Bn_kl4S_o5UJwo0BS1JRdfzCp-YxahXQIlUydrpWw1Aoy2lqgDPwgIh0esTV4Z5mOf3Xe8-md5pkDAet-DyBtiuhrUq7MFoUZyWVepZ_YlPlJuQXHRF0gOyafBBuvcc7TdSWC5dvIPOicqZhIxE5r4V1w0ElBQ3j1toSd72AFd3EL0Lo8ymck"; // fallback missing grid
+                                                    }}
+                                                />
+                                                <div className="absolute bottom-6 right-6 z-10 font-label text-[10px] text-primary/70 tracking-widest flex flex-col items-end gap-2 bg-background/80 px-4 py-3 rounded backdrop-blur border border-primary/10">
+                                                    <span className="flex items-center gap-2"><span className="material-symbols-outlined text-sm">wifi</span> LATENCY: 12ms</span>
+                                                    <span>ENCRYPTION: AES-256-GCM</span>
+                                                    <span className="text-secondary text-glow mt-2">MODEL: YOLO-WORLD</span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* IOT ZONE CONTROL TAB */}
+                                    {activeTab === 'IoT' && (
+                                        <motion.div
+                                            key="IoT"
+                                            initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: -30, scale: 0.98 }}
+                                            transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
+                                            className="w-full flex-1"
+                                        >
+                                            <div className="flex items-center justify-between mb-8">
+                                                <h2 className="text-3xl font-headline font-bold text-primary tracking-widest uppercase border-l-4 border-primary pl-4 text-glow">IoT ZONE CONTROL</h2>
+                                                <div className="flex items-center gap-4">
+                                                    <button onClick={() => toggleAllZones(1)} className="hover-target px-5 py-2.5 glass-panel border border-green-500/30 text-green-400 font-label text-xs uppercase tracking-widest font-bold hover:bg-green-500/10 hover:border-green-400 transition-all active:scale-95">
+                                                        <span className="flex items-center gap-2"><span className="material-symbols-outlined text-sm">power</span>ALL ON</span>
+                                                    </button>
+                                                    <button onClick={() => toggleAllZones(0)} className="hover-target px-5 py-2.5 glass-panel border border-red-500/30 text-red-400 font-label text-xs uppercase tracking-widest font-bold hover:bg-red-500/10 hover:border-red-400 transition-all active:scale-95">
+                                                        <span className="flex items-center gap-2"><span className="material-symbols-outlined text-sm">power_off</span>ALL OFF</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* ESP8266 Connection Status Card */}
+                                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`glass-panel p-6 mb-8 flex items-center gap-6 border-l-4 ${espStatus.connected ? 'border-l-green-500 bg-green-500/5' : 'border-l-red-500 bg-red-500/5'}`}>
+                                                <span className={`material-symbols-outlined text-4xl ${espStatus.connected ? 'text-green-400' : 'text-red-400 animate-pulse'}`}>router</span>
+                                                <div className="flex-1">
+                                                    <h3 className={`font-headline text-lg font-bold tracking-widest uppercase ${espStatus.connected ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {espStatus.connected ? 'ESP8266 CONNECTED' : 'ESP8266 DISCONNECTED'}
+                                                    </h3>
+                                                    <p className="font-label text-[10px] text-primary/50 tracking-widest uppercase mt-1">
+                                                        {espStatus.host ? `${espStatus.host}:${espStatus.port}` : 'No host configured'}
+                                                        {espStatus.last_error ? ` · ${espStatus.last_error}` : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="font-label text-[9px] text-primary/40 uppercase tracking-widest">Delay</span>
+                                                    <span className="font-headline text-xl text-primary font-bold">{espStatus.zone_empty_delay || 3}s</span>
+                                                </div>
+                                            </motion.div>
+
+                                            {/* 2×2 Zone Grid */}
+                                            <div className="grid grid-cols-2 gap-6 max-w-3xl mx-auto">
+                                                {['zone1', 'zone2', 'zone3', 'zone4'].map((zoneKey, idx) => {
+                                                    const info = zoneLabels[zoneKey];
+                                                    const occupied = zoneOccupancy[zoneKey] > 0;
+                                                    const lightOn = zoneLights[zoneKey] === 1;
+                                                    return (
+                                                        <motion.div
+                                                            key={zoneKey}
+                                                            initial={{ opacity: 0, scale: 0.9 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            transition={{ delay: idx * 0.1 }}
+                                                            className={`hover-target glass-panel relative p-8 flex flex-col items-center justify-center min-h-[220px] transition-all duration-500 border-2 cursor-pointer
+                                                                ${lightOn
+                                                                    ? (occupied ? 'border-green-500/50 bg-green-500/5 shadow-[0_0_30px_rgba(74,222,128,0.15)]' : 'border-yellow-500/50 bg-yellow-500/5 shadow-[0_0_30px_rgba(234,179,8,0.1)]')
+                                                                    : 'border-red-500/30 bg-red-500/5 shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                                                                }
+                                                                hover:scale-[1.03]
+                                                            `}
+                                                            onClick={() => toggleZone(zoneKey, lightOn)}
+                                                        >
+                                                            {/* Light icon */}
+                                                            <motion.span
+                                                                animate={lightOn ? { scale: [1, 1.1, 1] } : {}}
+                                                                transition={{ repeat: Infinity, duration: 2 }}
+                                                                className={`material-symbols-outlined text-6xl mb-4 ${lightOn ? 'text-yellow-300' : 'text-gray-600'}`}
+                                                                style={lightOn ? { filter: 'drop-shadow(0 0 20px rgba(253,224,71,0.6))', fontVariationSettings: "'FILL' 1" } : { fontVariationSettings: "'FILL' 0" }}
+                                                            >
+                                                                lightbulb
+                                                            </motion.span>
+
+                                                            {/* Zone label */}
+                                                            <h3 className="font-headline text-xl font-black tracking-widest uppercase text-on-surface mb-1">{info.label}</h3>
+                                                            <p className="font-label text-[10px] text-primary/40 tracking-widest uppercase mb-4">{info.pos} · Pin {info.pin}</p>
+
+                                                            {/* Status badges */}
+                                                            <div className="flex gap-3">
+                                                                <span className={`alert-badge ${occupied ? 'bg-green-500/20 text-green-400' : 'bg-red-500/15 text-red-400/70'}`}>
+                                                                    <span className="material-symbols-outlined text-xs">{occupied ? 'group' : 'group_off'}</span>
+                                                                    {zoneOccupancy[zoneKey]}P
+                                                                </span>
+                                                                <span className={`alert-badge ${lightOn ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-500'}`}>
+                                                                    <span className="material-symbols-outlined text-xs">{lightOn ? 'light_mode' : 'dark_mode'}</span>
+                                                                    {lightOn ? 'ON' : 'OFF'}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Click hint */}
+                                                            <p className="absolute bottom-3 font-label text-[8px] text-primary/25 tracking-widest uppercase">CLICK TO TOGGLE</p>
+                                                        </motion.div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Zone map legend */}
+                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="flex justify-center gap-8 mt-8 font-label text-[10px] uppercase tracking-widest">
+                                                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-green-500/40 border border-green-500/60 rounded-sm"></span><span className="text-primary/50">Occupied + ON</span></span>
+                                                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-yellow-500/40 border border-yellow-500/60 rounded-sm"></span><span className="text-primary/50">Empty + ON</span></span>
+                                                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-red-500/30 border border-red-500/50 rounded-sm"></span><span className="text-primary/50">Empty + OFF</span></span>
+                                            </motion.div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* ANALYTICS TAB */}
+                                    {activeTab === 'Analytics' && (
+                                        <motion.div
+                                            key="Analytics"
+                                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: -30 }}
+                                            transition={{ duration: 0.4 }}
+                                            className="w-full flex-1"
+                                        >
+                                            <h2 className="text-3xl font-headline font-bold text-primary tracking-widest uppercase border-l-4 border-primary pl-4 text-glow mb-8">POWER GRID ANALYTICS</h2>
+
+
+                                            {/* Action Buttons & Filters */}
+                                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="flex flex-col md:flex-row flex-wrap gap-4 mb-6">
+                                                <div className="flex gap-4">
+                                                    <button onClick={downloadCSV} className="hover-target flex items-center gap-3 px-6 py-3 glass-panel border border-primary/30 font-label text-xs uppercase tracking-widest text-primary font-bold transition-all hover:bg-primary/10 hover:border-primary hover:shadow-[0_0_20px_rgba(0,229,255,0.2)] active:scale-95">
+                                                        <span className="material-symbols-outlined text-base">download</span>
+                                                        Download CSV
+                                                    </button>
+                                                    <button onClick={() => setShowPreview(!showPreview)} className={`hover-target flex items-center gap-3 px-6 py-3 glass-panel border font-label text-xs uppercase tracking-widest font-bold transition-all active:scale-95 ${showPreview ? 'border-primary text-background bg-primary shadow-[0_0_20px_rgba(0,229,255,0.3)]' : 'border-primary/30 text-primary hover:bg-primary/10 hover:border-primary'}`}>
+                                                        <span className="material-symbols-outlined text-base">{showPreview ? 'visibility_off' : 'visibility'}</span>
+                                                        {showPreview ? 'Hide Data' : 'Preview Data'}
+                                                    </button>
+                                                </div>
+
+                                                <AnimatePresence>
+                                                    {showPreview && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.9, x: -20 }}
+                                                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                                                            className="flex gap-4"
+                                                        >
+                                                            {/* Room Filter Dropdown */}
+                                                            <div className="relative hover-target">
+                                                                <select
+                                                                    className="appearance-none bg-transparent glass-panel border border-primary/30 text-primary font-label text-xs uppercase tracking-widest px-6 py-3 pr-10 outline-none cursor-pointer hover:border-primary focus:border-primary"
+                                                                    value={analyticsRoomFilter}
+                                                                    onChange={(e) => setAnalyticsRoomFilter(e.target.value)}
+                                                                    style={{ backgroundColor: '#061A3A' }}
+                                                                >
+                                                                    <option value="All" style={{ background: '#061A3A' }}>All Rooms</option>
+                                                                    <option value="CAD" style={{ background: '#061A3A' }}>Room-CAD LAB (Live)</option>
+                                                                    <option value="102" style={{ background: '#061A3A' }}>Room 102 (Class)</option>
+                                                                    <option value="103" style={{ background: '#061A3A' }}>Room 103 (Lab)</option>
+                                                                </select>
+                                                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary/70 pointer-events-none text-xl">arrow_drop_down</span>
+                                                            </div>
+
+                                                            {/* Timestamp Filter Dropdown */}
+                                                            <div className="relative hover-target">
+                                                                <select
+                                                                    className="appearance-none bg-transparent glass-panel border border-primary/30 text-primary font-label text-xs uppercase tracking-widest px-6 py-3 pr-10 outline-none cursor-pointer hover:border-primary focus:border-primary"
+                                                                    disabled
+                                                                >
+                                                                    <option value="Day 1">Day 1 (Today)</option>
+                                                                    <option value="Day 2">Day 2</option>
+                                                                </select>
+                                                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary/70 pointer-events-none text-xl">arrow_drop_down</span>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+
+                                                <div className="md:ml-auto flex items-center gap-2 font-label text-[10px] text-primary/40 tracking-widest">
+                                                    <span className="w-2 h-2 rounded-full bg-primary status-pulse"></span>
+                                                    {filteredHistory.length} RECORDS LOGGED {analyticsRoomFilter !== 'All' ? `(${analyticsRoomFilter})` : ''}
+                                                </div>
+                                            </motion.div>
+
+                                            {/* Data Table */}
+                                            <AnimatePresence>
+                                                {showPreview && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        transition={{ duration: 0.4, type: 'spring', bounce: 0.1 }}
+                                                        className="glass-panel overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.4)]"
+                                                    >
+                                                        <div className="max-h-[450px] overflow-y-auto scrollbar-hide">
+                                                            <table className="data-table">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Timestamp</th>
+                                                                        <th>Room</th>
+                                                                        <th>Occupancy</th>
+                                                                        <th>Appliances</th>
+                                                                        <th>Alert</th>
+                                                                        <th>KWh/Day</th>
+                                                                        <th>Cost/Day (₹)</th>
+                                                                        <th>CO2 Footprint (%)</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {filteredHistory.slice().reverse().map((row, i) => (
+                                                                        <motion.tr
+                                                                            key={i}
+                                                                            initial={{ opacity: 0, x: -20 }}
+                                                                            animate={{ opacity: 1, x: 0 }}
+                                                                            transition={{ delay: Math.min(i * 0.03, 0.5) }}
+                                                                        >
+                                                                            <td className="text-primary/70 font-mono text-[11px]">{row.timestamp}</td>
+                                                                            <td className="font-semibold">{row.room}</td>
+                                                                            <td>
+                                                                                <span className="flex items-center gap-1">
+                                                                                    <span className="material-symbols-outlined text-sm text-primary/60">group</span>
+                                                                                    {row.person_count}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td>
+                                                                                <span className={`alert-badge ${row.appliance_state === 'ON' ? 'bg-error/20 text-error' : 'bg-primary/10 text-primary/60'}`}>
+                                                                                    {row.appliance_state}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td>
+                                                                                {row.alert ? (
+                                                                                    <span className="alert-badge bg-error/20 text-error"><span className="material-symbols-outlined text-xs">warning</span> ALERT</span>
+                                                                                ) : (
+                                                                                    <span className="alert-badge bg-primary/10 text-primary/40">OK</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="text-secondary font-mono">{row.daily_kwh !== undefined ? row.daily_kwh : (row.energy_saved_kwh * 24).toFixed(2)}</td>
+                                                                            <td className="text-green-400 font-mono">₹{row.daily_cost !== undefined ? row.daily_cost : (row.energy_saved_kwh * 24 * 8).toFixed(2)}</td>
+                                                                            <td className="text-orange-400 font-mono">{row.co2_footprint !== undefined ? row.co2_footprint : 15}%</td>
+                                                                        </motion.tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            {/* Data Visualization Dashboard */}
+                                            {!showPreview && (
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
+
+                                                    {/* Card 1: Phantom Load Events */}
+                                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="hover-target glass-panel p-5 border-l-4 border-l-secondary/50 shadow-[0_0_30px_rgba(139,92,246,0.1)] transition-transform hover:translate-y-[-4px] duration-300">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <p className="text-[9px] font-label text-secondary/70 uppercase tracking-widest">Phantom Load Events</p>
+                                                            <span className="material-symbols-outlined text-lg text-secondary/50">electric_bolt</span>
+                                                        </div>
+                                                        <p className="text-4xl font-headline text-secondary font-bold">{filteredHistory.filter(r => r.alert).length}</p>
+                                                        <p className="text-[9px] font-label text-primary/40 mt-3">Rooms with devices on while empty</p>
+                                                    </motion.div>
+
+                                                    {/* Card 2: Data Points Collected */}
+                                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hover-target glass-panel p-5 border-l-4 border-l-primary/50 shadow-[0_0_30px_rgba(0,229,255,0.1)] transition-transform hover:translate-y-[-4px] duration-300">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <p className="text-[9px] font-label text-primary/70 uppercase tracking-widest">Data Points Collected</p>
+                                                            <span className="material-symbols-outlined text-lg text-primary/50">database</span>
+                                                        </div>
+                                                        <p className="text-4xl font-headline text-primary font-bold text-glow">{filteredHistory.length}</p>
+                                                        <p className="text-[9px] font-label text-primary/40 mt-3">Click "Preview Data" to inspect records</p>
+                                                    </motion.div>
+
+                                                    {/* Card 3: Current Usage vs Recommended Usage (KWh) */}
+                                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="hover-target glass-panel p-5 border-l-4 border-l-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.1)] transition-transform hover:translate-y-[-4px] duration-300">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <p className="text-[9px] font-label text-yellow-400/70 uppercase tracking-widest">Energy Consumption</p>
+                                                            <span className="material-symbols-outlined text-lg text-yellow-400/50">speed</span>
+                                                        </div>
+
+                                                        {/* VS Layout with Electrical Sign */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex flex-col flex-1">
+                                                                <span className="text-[9px] font-label text-error/80 uppercase mb-1">Current</span>
+                                                                <span className="text-3xl font-headline text-error font-bold tracking-tighter">
+                                                                    {filteredHistory.length > 0 ? filteredHistory[filteredHistory.length - 1].daily_kwh : '0.0'}
+                                                                </span>
+                                                                <span className="text-[10px] text-error/50 font-mono">kWh</span>
+                                                            </div>
+
+                                                            {/* Electrical Thunder VS Sign */}
+                                                            <div className="flex flex-col items-center justify-center px-3 flex-shrink-0 relative">
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    <div className="w-10 h-10 rounded-full bg-yellow-500/10 animate-ping"></div>
+                                                                </div>
+                                                                <div className="relative w-10 h-10 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+                                                                    <span className="material-symbols-outlined text-2xl text-yellow-400 animate-pulse" style={{ filter: 'drop-shadow(0 0 8px rgba(234,179,8,0.8))' }}>bolt</span>
+                                                                </div>
+                                                                <span className="text-[8px] font-bold text-yellow-400/80 tracking-[0.2em] mt-1 leading-none">VS</span>
+                                                            </div>
+
+                                                            <div className="flex flex-col items-end flex-1">
+                                                                <span className="text-[9px] font-label text-primary/80 uppercase mb-1 text-right">Target</span>
+                                                                <span className="text-3xl font-headline text-primary font-bold tracking-tighter text-right">
+                                                                    300
+                                                                </span>
+                                                                <span className="text-[10px] text-primary/50 font-mono text-right">kWh</span>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[9px] font-label text-primary/40 mt-3 border-t border-yellow-500/10 pt-2">Target: 300 kWh/month • 6×20W tubelights @ ₹7/unit</p>
+                                                    </motion.div>
+
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
+
+                                </AnimatePresence>
+                            </main>
+                        </motion.div>
+
+                    </div>
+
+                    {/* Fixed Footer below scroll content removed */}
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+
+</html>
